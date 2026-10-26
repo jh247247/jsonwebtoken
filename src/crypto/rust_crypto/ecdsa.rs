@@ -7,6 +7,7 @@ use crate::errors::{ErrorKind, Result, new_error};
 use crate::{Algorithm, DecodingKey, EncodingKey};
 use p256::ecdsa::{
     Signature as Signature256, SigningKey as SigningKey256, VerifyingKey as VerifyingKey256,
+    signature::{Signer as EcdsaSigner, Verifier as EcdsaVerifier},
 };
 use p256::pkcs8::DecodePrivateKey;
 use p384::ecdsa::{
@@ -15,7 +16,7 @@ use p384::ecdsa::{
 use signature::{Error, Signer, Verifier};
 
 macro_rules! define_ecdsa_signer {
-    ($name:ident, $alg:expr, $signing_key:ty) => {
+    ($name:ident, $alg:expr, $signing_key:ty, $signature:ty) => {
         pub struct $name($signing_key);
 
         impl $name {
@@ -33,7 +34,8 @@ macro_rules! define_ecdsa_signer {
 
         impl Signer<Vec<u8>> for $name {
             fn try_sign(&self, msg: &[u8]) -> std::result::Result<Vec<u8>, Error> {
-                let signature = self.0.sign_recoverable(msg).map_err(Error::from_source)?.0;
+                let signature: $signature = EcdsaSigner::<$signature>::try_sign(&self.0, msg)
+                    .map_err(Error::from_source)?;
                 Ok(signature.to_vec())
             }
         }
@@ -65,8 +67,8 @@ macro_rules! define_ecdsa_verifier {
 
         impl Verifier<Vec<u8>> for $name {
             fn verify(&self, msg: &[u8], signature: &Vec<u8>) -> std::result::Result<(), Error> {
-                self.0
-                    .verify(msg, &<$signature>::from_slice(signature).map_err(Error::from_source)?)
+                let signature = <$signature>::from_slice(signature).map_err(Error::from_source)?;
+                EcdsaVerifier::<$signature>::verify(&self.0, msg, &signature)
                     .map_err(Error::from_source)?;
                 Ok(())
             }
@@ -80,8 +82,8 @@ macro_rules! define_ecdsa_verifier {
     };
 }
 
-define_ecdsa_signer!(Es256Signer, Algorithm::ES256, SigningKey256);
-define_ecdsa_signer!(Es384Signer, Algorithm::ES384, SigningKey384);
+define_ecdsa_signer!(Es256Signer, Algorithm::ES256, SigningKey256, Signature256);
+define_ecdsa_signer!(Es384Signer, Algorithm::ES384, SigningKey384, Signature384);
 
 define_ecdsa_verifier!(Es256Verifier, Algorithm::ES256, VerifyingKey256, Signature256);
 define_ecdsa_verifier!(Es384Verifier, Algorithm::ES384, VerifyingKey384, Signature384);

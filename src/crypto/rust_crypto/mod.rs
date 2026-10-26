@@ -4,6 +4,7 @@ use ::rsa::{
     traits::PublicKeyParts,
 };
 use ed25519_dalek::SigningKey as Ed25519SigningKey;
+use ed25519_dalek::pkcs8::DecodePrivateKey as _;
 use p256::{ecdsa::SigningKey as P256SigningKey, pkcs8::DecodePrivateKey};
 use p384::ecdsa::SigningKey as P384SigningKey;
 use sha2::{Digest, Sha256, Sha384, Sha512};
@@ -42,7 +43,7 @@ fn ec_components_from_private_key(
             let signing_key = P256SigningKey::from_pkcs8_der(key_content)
                 .map_err(|_| ErrorKind::InvalidEcdsaKey)?;
             let public_key = signing_key.verifying_key();
-            let encoded = public_key.to_encoded_point(false);
+            let encoded = public_key.to_sec1_point(false);
             match encoded.coordinates() {
                 p256::elliptic_curve::sec1::Coordinates::Uncompressed { x, y } => {
                     Ok((EllipticCurve::P256, x.to_vec(), y.to_vec()))
@@ -54,7 +55,7 @@ fn ec_components_from_private_key(
             let signing_key = P384SigningKey::from_pkcs8_der(key_content)
                 .map_err(|_| ErrorKind::InvalidEcdsaKey)?;
             let public_key = signing_key.verifying_key();
-            let encoded = public_key.to_encoded_point(false);
+            let encoded = public_key.to_sec1_point(false);
             match encoded.coordinates() {
                 p384::elliptic_curve::sec1::Coordinates::Uncompressed { x, y } => {
                     Ok((EllipticCurve::P384, x.to_vec(), y.to_vec()))
